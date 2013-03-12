@@ -30,10 +30,79 @@ static struct mrb_data_type mrb_sandbox_context_type = {
   "mrb_sandbox_context", mrb_sandbox_context_free,
 };
 
+#define DONE mrb_gc_arena_restore(mrb, 0);
+
+extern void mrb_init_heap(mrb_state*);
+extern void mrb_init_symtbl(mrb_state*);
+extern void mrb_init_class(mrb_state*);
+extern void mrb_init_object(mrb_state*);
+extern void mrb_init_kernel(mrb_state*);
+extern void mrb_init_comparable(mrb_state*);
+extern void mrb_init_enumerable(mrb_state*);
+extern void mrb_init_symbol(mrb_state*);
+extern void mrb_init_exception(mrb_state*);
+extern void mrb_init_proc(mrb_state*);
+extern void mrb_init_string(mrb_state*);
+extern void mrb_init_array(mrb_state*);
+extern void mrb_init_hash(mrb_state*);
+extern void mrb_init_numeric(mrb_state*);
+extern void mrb_init_range(mrb_state*);
+extern void mrb_init_gc(mrb_state*);
+extern void mrb_init_mrblib(mrb_state*);
+
+static void*
+allocf(mrb_state *mrb, void *p, size_t size, void *ud)
+{
+  if (size == 0) {
+    free(p);
+    return NULL;
+  }
+  else {
+    return realloc(p, size);
+  }
+}
+
+static mrb_state*
+my_mrb_open_allocf(mrb_allocf f, void *ud)
+{
+  static const mrb_state mrb_state_zero = { 0 };
+  mrb_state *mrb = (mrb_state *)(f)(NULL, NULL, sizeof(mrb_state), ud);
+  if (mrb == NULL) return NULL;
+
+  *mrb = mrb_state_zero;
+  mrb->ud = ud;
+  mrb->allocf = f;
+  mrb->current_white_part = MRB_GC_WHITE_A;
+
+  mrb_init_heap(mrb);
+  mrb_init_symtbl(mrb); DONE;
+  mrb_init_class(mrb); DONE;
+  mrb_init_object(mrb); DONE;
+  mrb_init_kernel(mrb); DONE;
+  mrb_init_comparable(mrb); DONE;
+  mrb_init_enumerable(mrb); DONE;
+
+  mrb_init_symbol(mrb); DONE;
+  mrb_init_exception(mrb); DONE;
+  mrb_init_proc(mrb); DONE;
+  mrb_init_string(mrb); DONE;
+  mrb_init_array(mrb); DONE;
+  mrb_init_hash(mrb); DONE;
+  mrb_init_numeric(mrb); DONE;
+  mrb_init_range(mrb); DONE;
+  mrb_init_gc(mrb); DONE;
+#ifdef ENABLE_STDIO
+  //mrb_init_print(mrb); DONE;
+#endif
+  mrb_init_mrblib(mrb); DONE;
+  return mrb;
+}
+
 static mrb_value
 mrb_sandbox_init(mrb_state* mrb, mrb_value self) {
   mrb_sandbox_context* sc = (mrb_sandbox_context*) malloc(sizeof(mrb_sandbox_context));
-  sc->mrb = mrb_open();
+
+  sc->mrb = my_mrb_open_allocf(allocf, NULL);
   sc->cxt = mrbc_context_new(sc->mrb);
   DATA_TYPE(self) = &mrb_sandbox_context_type;
   DATA_PTR(self) = sc;
