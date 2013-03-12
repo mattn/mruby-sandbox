@@ -57,18 +57,18 @@ mrb_sandbox_eval(mrb_state* mrb, mrb_value self) {
   parser->lineno = 1;
   mrb_parser_parse(parser, sc->cxt);
   if (0 < parser->nerr) {
-	  mrb_raisef(mrb, E_RUNTIME_ERROR, "line %d: %s\n", parser->error_buffer[0].lineno, parser->error_buffer[0].message);
+    mrb_raisef(mrb, E_RUNTIME_ERROR, "line %d: %s\n", parser->error_buffer[0].lineno, parser->error_buffer[0].message);
   }
-	n = mrb_generate_code(sc->mrb, parser);
+  n = mrb_generate_code(sc->mrb, parser);
   mrb_parser_free(parser);
-	result = mrb_run(sc->mrb,
+  result = mrb_run(sc->mrb,
     mrb_proc_new(sc->mrb, sc->mrb->irep[n]),
     mrb_top_self(sc->mrb));
-	if (mrb->exc) {
+  if (mrb->exc) {
     obj = mrb_funcall(sc->mrb, mrb_obj_value(sc->mrb->exc), "inspect", 0);
-	  sc->mrb->exc = 0;
+    sc->mrb->exc = 0;
     mrb_raise(mrb, E_RUNTIME_ERROR, RSTRING_PTR(obj));
-	}
+  }
   obj = mrb_funcall(sc->mrb, result, "inspect", 0);
   return mrb_str_new(mrb, RSTRING_PTR(obj), RSTRING_LEN(obj));
 }
