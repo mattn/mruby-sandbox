@@ -152,7 +152,7 @@ mrb_sandbox_eval(mrb_state* mrb, mrb_value self) {
   result = mrb_run(sc->mrb,
     mrb_proc_new(sc->mrb, sc->mrb->irep[n]),
     mrb_top_self(sc->mrb));
-  signal(SIGALRM, SIG_DFL);
+  signal(SIGALRM, SIG_IGN);
   if (sc->mrb->exc) {
     obj = mrb_funcall(sc->mrb, mrb_obj_value(sc->mrb->exc), "inspect", 0);
     sc->mrb->exc = 0;
