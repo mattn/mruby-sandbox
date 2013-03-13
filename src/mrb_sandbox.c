@@ -49,6 +49,9 @@ extern void mrb_init_numeric(mrb_state*);
 extern void mrb_init_range(mrb_state*);
 extern void mrb_init_gc(mrb_state*);
 extern void mrb_init_mrblib(mrb_state*);
+extern void mrb_mruby_struct_gem_init(mrb_state*);
+extern void mrb_mruby_math_gem_init(mrb_state*);
+extern void mrb_mruby_time_gem_init(mrb_state*);
 
 static void*
 allocf(mrb_state *mrb, void *p, size_t size, void *ud)
@@ -95,6 +98,9 @@ my_mrb_open_allocf(mrb_allocf f, void *ud)
   //mrb_init_print(mrb); DONE;
 #endif
   mrb_init_mrblib(mrb); DONE;
+  mrb_mruby_struct_gem_init(mrb); DONE;
+  mrb_mruby_math_gem_init(mrb); DONE;
+  mrb_mruby_time_gem_init(mrb); DONE;
   return mrb;
 }
 
@@ -133,10 +139,10 @@ mrb_sandbox_eval(mrb_state* mrb, mrb_value self) {
   result = mrb_run(sc->mrb,
     mrb_proc_new(sc->mrb, sc->mrb->irep[n]),
     mrb_top_self(sc->mrb));
-  if (mrb->exc) {
+  if (sc->mrb->exc) {
     obj = mrb_funcall(sc->mrb, mrb_obj_value(sc->mrb->exc), "inspect", 0);
     sc->mrb->exc = 0;
-    mrb_raise(mrb, E_RUNTIME_ERROR, RSTRING_PTR(obj));
+    return mrb_str_new(mrb, RSTRING_PTR(obj), RSTRING_LEN(obj));
   }
   obj = mrb_funcall(sc->mrb, result, "inspect", 0);
   return mrb_str_new(mrb, RSTRING_PTR(obj), RSTRING_LEN(obj));
