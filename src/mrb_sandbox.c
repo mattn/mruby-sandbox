@@ -12,6 +12,8 @@
 #include <ctype.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <signal.h>
+#include <unistd.h>
 
 typedef struct {
   mrb_state* mrb;
@@ -115,6 +117,14 @@ mrb_sandbox_init(mrb_state* mrb, mrb_value self) {
   return self;
 }
 
+static mrb_state* last_mrb = NULL;
+void timeout(int n) {
+  if (last_mrb) {
+    mrb_state* mrb = last_mrb;
+    mrb_raise(mrb, E_RUNTIME_ERROR, "Timeout");
+  }
+}
+
 static mrb_value
 mrb_sandbox_eval(mrb_state* mrb, mrb_value self) {
   mrb_sandbox_context* sc;
@@ -136,9 +146,13 @@ mrb_sandbox_eval(mrb_state* mrb, mrb_value self) {
   }
   n = mrb_generate_code(sc->mrb, parser);
   mrb_parser_free(parser);
+  last_mrb = sc->mrb;
+  signal(SIGALRM, timeout);
+  alarm(3);
   result = mrb_run(sc->mrb,
     mrb_proc_new(sc->mrb, sc->mrb->irep[n]),
     mrb_top_self(sc->mrb));
+  signal(SIGALRM, SIG_DFL);
   if (sc->mrb->exc) {
     obj = mrb_funcall(sc->mrb, mrb_obj_value(sc->mrb->exc), "inspect", 0);
     sc->mrb->exc = 0;
