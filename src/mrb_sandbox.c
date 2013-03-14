@@ -21,14 +21,14 @@
 typedef void (*sighandler_t)(int);
 sighandler_t f_sigalarm = NULL;
 void alarm(int sec) {
-	timeSetEvent(sec * 1000, 100, (LPTIMECALLBACK) f_sigalarm, 0, TIME_ONESHOT);
+  timeSetEvent(sec * 1000, 100, (LPTIMECALLBACK) f_sigalarm, 0, TIME_ONESHOT);
 }
 void _signal(int sig, sighandler_t t) {
-	if (sig == SIGALRM) {
-		f_sigalarm = t;
-	} else {
-		signal(sig, t);
-	}
+  if (sig == SIGALRM) {
+    f_sigalarm = t;
+  } else {
+    signal(sig, t);
+  }
 }
 #define signal(x, y) _signal(x, y)
 #endif
