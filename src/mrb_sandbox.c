@@ -154,7 +154,7 @@ mrb_sandbox_eval(mrb_state* mrb, mrb_value self) {
   struct mrb_parser_state *parser;
   int n;
   char* code;
-  mrb_value result;
+  mrb_value result, ret;
   mrb_value obj;
   mrb_get_args(mrb, "z", &code);
 
@@ -187,8 +187,10 @@ mrb_sandbox_eval(mrb_state* mrb, mrb_value self) {
     return mrb_str_new(mrb, RSTRING_PTR(obj), RSTRING_LEN(obj));
   }
   obj = mrb_funcall(sc->mrb, result, "to_s", 0);
+  ret = mrb_str_new(mrb, RSTRING_PTR(obj), RSTRING_LEN(obj));
   mrb_gc_arena_restore(mrb, ai);
-  return mrb_str_new(mrb, RSTRING_PTR(obj), RSTRING_LEN(obj));
+  mrb_garbage_collect(sc->mrb);
+  return ret;
 }
 
 static mrb_value
