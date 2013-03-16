@@ -21,7 +21,10 @@
 typedef void (*sighandler_t)(int);
 sighandler_t f_sigalarm = NULL;
 void alarm(int sec) {
-  timeSetEvent(sec * 1000, 100, (LPTIMECALLBACK) f_sigalarm, 0, TIME_ONESHOT);
+  if (sec == 0)
+    f_sigalarm = NULL;
+  else
+    timeSetEvent(sec * 1000, 100, (LPTIMECALLBACK) f_sigalarm, 0, TIME_ONESHOT);
 }
 void _signal(int sig, sighandler_t t) {
   if (sig == SIGALRM) {
@@ -175,21 +178,26 @@ mrb_sandbox_eval(mrb_state* mrb, mrb_value self) {
   last_mrb = sc->mrb;
   signal(SIGALRM, f_timeout);
   alarm(sc->timeout);
+  int ai = mrb_gc_arena_save(mrb);
+  int ai_sc = mrb_gc_arena_save(sc->mrb);
   result = mrb_run(sc->mrb,
     mrb_proc_new(sc->mrb, sc->mrb->irep[n]),
     mrb_top_self(sc->mrb));
   signal(SIGALRM, SIG_IGN);
-  int ai = mrb_gc_arena_save(mrb);
-  if (sc->mrb->exc) {
+  alarm(0);
+  if (sc->mrb->exc)
+#ifdef _WIN32
     obj = mrb_funcall(mrb, mrb_obj_value(sc->mrb->exc), "inspect", 0);
-    mrb_gc_arena_restore(mrb, ai);
-    sc->mrb->exc = 0;
-    return mrb_str_new(mrb, RSTRING_PTR(obj), RSTRING_LEN(obj));
-  }
-  obj = mrb_funcall(sc->mrb, result, "to_s", 0);
+#else
+    obj = mrb_funcall(sc->mrb, mrb_obj_value(sc->mrb->exc), "inspect", 0);
+#endif
+  else
+    obj = mrb_funcall(sc->mrb, result, "to_s", 0);
   ret = mrb_str_new(mrb, RSTRING_PTR(obj), RSTRING_LEN(obj));
-  mrb_gc_arena_restore(mrb, ai);
   mrb_garbage_collect(sc->mrb);
+  mrb_gc_arena_restore(mrb, ai);
+  mrb_gc_arena_restore(sc->mrb, ai_sc);
+  sc->mrb->exc = 0;
   return ret;
 }
 
