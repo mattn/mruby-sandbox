@@ -141,14 +141,12 @@ mrb_sandbox_init(mrb_state* mrb, mrb_value self) {
   return self;
 }
 
-static mrb_state* current_mrb = NULL;
 static mrb_state* last_mrb = NULL;
+static struct RObject* timeout_error = NULL;
+
 static void
 f_timeout(int sig) {
-  last_mrb->exc = (struct RObject*) mrb_object(mrb_funcall(
-    current_mrb,
-    mrb_obj_value(mrb_class_obj_get(last_mrb, "RuntimeError")),
-      "new", 1, mrb_str_new_cstr(current_mrb, "Timeout")));
+  last_mrb->exc = timeout_error;
 }
 
 static mrb_value
@@ -174,8 +172,11 @@ mrb_sandbox_eval(mrb_state* mrb, mrb_value self) {
   n = mrb_generate_code(sc->mrb, parser);
   mrb_parser_free(parser);
 
-  current_mrb = mrb;
   last_mrb = sc->mrb;
+  timeout_error = (struct RObject*) mrb_object(mrb_funcall(
+    sc->mrb,
+    mrb_obj_value(mrb_class_obj_get(sc->mrb, "RuntimeError")),
+      "new", 1, mrb_str_new_cstr(sc->mrb, "Timeout")));
   signal(SIGALRM, f_timeout);
   alarm(sc->timeout);
   int ai = mrb_gc_arena_save(mrb);
@@ -186,11 +187,7 @@ mrb_sandbox_eval(mrb_state* mrb, mrb_value self) {
   signal(SIGALRM, SIG_IGN);
   alarm(0);
   if (sc->mrb->exc)
-#ifdef _WIN32
-    obj = mrb_funcall(mrb, mrb_obj_value(sc->mrb->exc), "inspect", 0);
-#else
     obj = mrb_funcall(sc->mrb, mrb_obj_value(sc->mrb->exc), "inspect", 0);
-#endif
   else
     obj = mrb_funcall(sc->mrb, result, "to_s", 0);
   ret = mrb_str_new(mrb, RSTRING_PTR(obj), RSTRING_LEN(obj));
