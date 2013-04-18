@@ -1,6 +1,7 @@
 #include <mruby.h>
 #include <mruby/string.h>
 #include <mruby/compile.h>
+#include "mruby/irep.h"
 #include <mruby/data.h>
 #include <mruby/class.h>
 #include <mruby/proc.h>
@@ -14,6 +15,50 @@
 #include <signal.h>
 #include <unistd.h>
 
+extern void mrb_init_heap(mrb_state*);
+extern void mrb_init_symtbl(mrb_state*);
+extern void mrb_init_class(mrb_state*);
+extern void mrb_init_object(mrb_state*);
+extern void mrb_init_kernel(mrb_state*);
+extern void mrb_init_comparable(mrb_state*);
+extern void mrb_init_enumerable(mrb_state*);
+extern void mrb_init_symbol(mrb_state*);
+extern void mrb_init_exception(mrb_state*);
+extern void mrb_init_proc(mrb_state*);
+extern void mrb_init_string(mrb_state*);
+extern void mrb_init_array(mrb_state*);
+extern void mrb_init_hash(mrb_state*);
+extern void mrb_init_numeric(mrb_state*);
+extern void mrb_init_range(mrb_state*);
+extern void mrb_init_gc(mrb_state*);
+extern void mrb_init_mrblib(mrb_state*);
+
+#define GEM_EXTERN(x) \
+extern void mrb_mruby_ ## x ## _gem_init(mrb_state*); \
+extern void mrb_mruby_ ## x ## _gem_final(mrb_state*); \
+extern const uint8_t gem_mrblib_irep_mruby_ ## x[];
+#define GEM_INIT(x, y) \
+mrb_mruby_ ## x ## _gem_init(y);
+#define GEM_INIT_IREP(x, y) \
+mrb_load_irep(y, gem_mrblib_irep_mruby_ ## x);
+#define GEM_FINAL(x, y) \
+mrb_mruby_ ## x ## _gem_final(y);
+
+GEM_EXTERN(sprintf);
+GEM_EXTERN(math);
+GEM_EXTERN(time);
+GEM_EXTERN(struct);
+GEM_EXTERN(enum_ext);
+GEM_EXTERN(string_ext);
+GEM_EXTERN(numeric_ext);
+GEM_EXTERN(range_ext);
+GEM_EXTERN(proc_ext);
+GEM_EXTERN(random);
+GEM_EXTERN(array_ext);
+GEM_EXTERN(hash_ext);
+
+mrb_value
+mrb_yield_internal(mrb_state *mrb, mrb_value b, int argc, mrb_value *argv, mrb_value self, struct RClass *c);
 #ifdef _WIN32
 #include <windows.h>
 #include <mmsystem.h>
@@ -46,7 +91,19 @@ static void
 mrb_sandbox_context_free(mrb_state *mrb, void *p) {
   mrb_sandbox_context* sc = (mrb_sandbox_context*) p;
   if (sc->cxt) mrbc_context_free(sc->mrb, sc->cxt);
-  if (sc->mrb) mrb_close(sc->mrb);
+  if (sc->mrb) {
+    GEM_FINAL(sprintf, sc->mrb);
+    GEM_FINAL(math, sc->mrb);
+    GEM_FINAL(time, sc->mrb);
+    GEM_FINAL(struct, sc->mrb);
+    GEM_FINAL(string_ext, sc->mrb);
+    GEM_FINAL(numeric_ext, sc->mrb);
+    GEM_FINAL(range_ext, sc->mrb);
+    GEM_FINAL(proc_ext, sc->mrb);
+    GEM_FINAL(random, sc->mrb);
+    GEM_FINAL(array_ext, sc->mrb);
+    mrb_close(sc->mrb);
+  }
   free(p);
 }
 
@@ -55,27 +112,6 @@ static struct mrb_data_type mrb_sandbox_context_type = {
 };
 
 #define DONE mrb_gc_arena_restore(mrb, 0);
-
-extern void mrb_init_heap(mrb_state*);
-extern void mrb_init_symtbl(mrb_state*);
-extern void mrb_init_class(mrb_state*);
-extern void mrb_init_object(mrb_state*);
-extern void mrb_init_kernel(mrb_state*);
-extern void mrb_init_comparable(mrb_state*);
-extern void mrb_init_enumerable(mrb_state*);
-extern void mrb_init_symbol(mrb_state*);
-extern void mrb_init_exception(mrb_state*);
-extern void mrb_init_proc(mrb_state*);
-extern void mrb_init_string(mrb_state*);
-extern void mrb_init_array(mrb_state*);
-extern void mrb_init_hash(mrb_state*);
-extern void mrb_init_numeric(mrb_state*);
-extern void mrb_init_range(mrb_state*);
-extern void mrb_init_gc(mrb_state*);
-extern void mrb_init_mrblib(mrb_state*);
-extern void mrb_mruby_struct_gem_init(mrb_state*);
-extern void mrb_mruby_math_gem_init(mrb_state*);
-extern void mrb_mruby_time_gem_init(mrb_state*);
 
 static void*
 allocf(mrb_state *mrb, void *p, size_t size, void *ud)
@@ -122,9 +158,24 @@ my_mrb_open_allocf(mrb_allocf f, void *ud)
   //mrb_init_print(mrb); DONE;
 #endif
   mrb_init_mrblib(mrb); DONE;
-  mrb_mruby_struct_gem_init(mrb); DONE;
-  mrb_mruby_math_gem_init(mrb); DONE;
-  mrb_mruby_time_gem_init(mrb); DONE;
+
+  GEM_INIT(sprintf, mrb); DONE;
+  GEM_INIT(math, mrb); DONE;
+  GEM_INIT(time, mrb); DONE;
+  GEM_INIT(struct, mrb); DONE;
+  GEM_INIT_IREP(struct, mrb); DONE;
+  GEM_INIT_IREP(enum_ext, mrb); DONE;
+  GEM_INIT(string_ext, mrb); DONE;
+  GEM_INIT_IREP(string_ext, mrb); DONE;
+  GEM_INIT(numeric_ext, mrb); DONE;
+  GEM_INIT(array_ext, mrb); DONE;
+  GEM_INIT_IREP(array_ext, mrb); DONE;
+  GEM_INIT_IREP(hash_ext, mrb); DONE;
+  GEM_INIT(range_ext, mrb); DONE;
+  GEM_INIT(proc_ext, mrb); DONE;
+  GEM_INIT_IREP(proc_ext, mrb); DONE;
+  GEM_INIT(random, mrb); DONE;
+
   return mrb;
 }
 
