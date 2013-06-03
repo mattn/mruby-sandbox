@@ -226,7 +226,7 @@ mrb_sandbox_eval(mrb_state* mrb, mrb_value self) {
   last_mrb = sc->mrb;
   timeout_error = (struct RObject*) mrb_object(mrb_funcall(
     sc->mrb,
-    mrb_obj_value(mrb_class_obj_get(sc->mrb, "RuntimeError")),
+    mrb_obj_value(mrb_class_get(sc->mrb, "RuntimeError")),
       "new", 1, mrb_str_new_cstr(sc->mrb, "Timeout")));
   signal(SIGALRM, f_timeout);
   alarm(sc->timeout);
