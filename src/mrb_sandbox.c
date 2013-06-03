@@ -53,9 +53,11 @@ GEM_EXTERN(string_ext);
 GEM_EXTERN(numeric_ext);
 GEM_EXTERN(range_ext);
 GEM_EXTERN(proc_ext);
+GEM_EXTERN(symbol_ext);
 GEM_EXTERN(random);
 GEM_EXTERN(array_ext);
 GEM_EXTERN(hash_ext);
+GEM_EXTERN(fiber);
 
 mrb_value
 mrb_yield_internal(mrb_state *mrb, mrb_value b, int argc, mrb_value *argv, mrb_value self, struct RClass *c);
@@ -129,6 +131,7 @@ static mrb_state*
 my_mrb_open_allocf(mrb_allocf f, void *ud)
 {
   static const mrb_state mrb_state_zero = { 0 };
+  static const struct mrb_context mrb_context_zero = { 0 };
   mrb_state *mrb = (mrb_state *)(f)(NULL, NULL, sizeof(mrb_state), ud);
   if (mrb == NULL) return NULL;
 
@@ -138,6 +141,10 @@ my_mrb_open_allocf(mrb_allocf f, void *ud)
   mrb->current_white_part = MRB_GC_WHITE_A;
 
   mrb_init_heap(mrb);
+  mrb->c = (struct mrb_context*)mrb_malloc(mrb, sizeof(struct mrb_context));
+  *mrb->c = mrb_context_zero;
+  mrb->root_c = mrb->c;
+
   mrb_init_symtbl(mrb); DONE;
   mrb_init_class(mrb); DONE;
   mrb_init_object(mrb); DONE;
@@ -154,26 +161,40 @@ my_mrb_open_allocf(mrb_allocf f, void *ud)
   mrb_init_numeric(mrb); DONE;
   mrb_init_range(mrb); DONE;
   mrb_init_gc(mrb); DONE;
-#ifdef ENABLE_STDIO
-  //mrb_init_print(mrb); DONE;
-#endif
   mrb_init_mrblib(mrb); DONE;
 
   GEM_INIT(sprintf, mrb); DONE;
+
   GEM_INIT(math, mrb); DONE;
+
   GEM_INIT(time, mrb); DONE;
+
   GEM_INIT(struct, mrb); DONE;
   GEM_INIT_IREP(struct, mrb); DONE;
+
   GEM_INIT_IREP(enum_ext, mrb); DONE;
+
   GEM_INIT(string_ext, mrb); DONE;
   GEM_INIT_IREP(string_ext, mrb); DONE;
+
   GEM_INIT(numeric_ext, mrb); DONE;
+
   GEM_INIT(array_ext, mrb); DONE;
   GEM_INIT_IREP(array_ext, mrb); DONE;
+
+  GEM_INIT(hash_ext, mrb); DONE;
   GEM_INIT_IREP(hash_ext, mrb); DONE;
+
   GEM_INIT(range_ext, mrb); DONE;
+
   GEM_INIT(proc_ext, mrb); DONE;
   GEM_INIT_IREP(proc_ext, mrb); DONE;
+
+  GEM_INIT(symbol_ext, mrb); DONE;
+  GEM_INIT_IREP(symbol_ext, mrb); DONE;
+
+  GEM_INIT(fiber, mrb); DONE;
+
   GEM_INIT(random, mrb); DONE;
 
   return mrb;
