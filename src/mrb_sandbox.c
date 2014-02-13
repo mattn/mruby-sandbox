@@ -58,6 +58,9 @@ GEM_EXTERN(random);
 GEM_EXTERN(array_ext);
 GEM_EXTERN(hash_ext);
 GEM_EXTERN(fiber);
+GEM_EXTERN(object_ext);
+GEM_EXTERN(objectspace);
+GEM_EXTERN(toplevel_ext);
 
 mrb_value
 mrb_yield_internal(mrb_state *mrb, mrb_value b, int argc, mrb_value *argv, mrb_value self, struct RClass *c);
@@ -68,14 +71,23 @@ mrb_yield_internal(mrb_state *mrb, mrb_value b, int argc, mrb_value *argv, mrb_v
 typedef void (*sighandler_t)(int);
 sighandler_t f_sigalarm = NULL;
 void alarm(int sec) {
-  if (sec == 0)
+  static UINT id = 0;
+  if (sec == 0) {
     f_sigalarm = NULL;
-  else
-    timeSetEvent(sec * 1000, 100, (LPTIMECALLBACK) f_sigalarm, 0, TIME_ONESHOT);
+    if (id != 0) {
+      timeKillEvent(id);
+      id = 0;
+    }
+  } else {
+    id = timeSetEvent(sec * 1000, 100, (LPTIMECALLBACK) f_sigalarm, 0, TIME_ONESHOT);
+  }
 }
 void _signal(int sig, sighandler_t t) {
   if (sig == SIGALRM) {
     f_sigalarm = t;
+    if (t == SIG_IGN) {
+      alarm(0);
+    }
   } else {
     signal(sig, t);
   }
@@ -113,7 +125,7 @@ static struct mrb_data_type mrb_sandbox_context_type = {
   "mrb_sandbox_context", mrb_sandbox_context_free,
 };
 
-#define DONE mrb_gc_arena_restore(mrb, 0);
+#define DONE mrb_gc_arena_restore(mrb, ai);
 
 static void*
 allocf(mrb_state *mrb, void *p, size_t size, void *ud)
@@ -140,12 +152,19 @@ my_mrb_open_allocf(mrb_allocf f, void *ud)
   mrb->allocf = f;
   mrb->current_white_part = MRB_GC_WHITE_A;
 
+#ifndef MRB_GC_FIXED_ARENA
+  mrb->arena = (struct RBasic**)mrb_malloc(mrb, sizeof(struct RBasic*)*MRB_GC_ARENA_SIZE);
+  mrb->arena_capa = MRB_GC_ARENA_SIZE;
+#endif
+
   mrb_init_heap(mrb);
   mrb->c = (struct mrb_context*)mrb_malloc(mrb, sizeof(struct mrb_context));
   *mrb->c = mrb_context_zero;
   mrb->root_c = mrb->c;
 
+  int ai = mrb_gc_arena_save(mrb);
   mrb_init_symtbl(mrb); DONE;
+
   mrb_init_class(mrb); DONE;
   mrb_init_object(mrb); DONE;
   mrb_init_kernel(mrb); DONE;
@@ -193,9 +212,15 @@ my_mrb_open_allocf(mrb_allocf f, void *ud)
   GEM_INIT(symbol_ext, mrb); DONE;
   GEM_INIT_IREP(symbol_ext, mrb); DONE;
 
+  GEM_INIT(random, mrb); DONE;
+
+  GEM_INIT(object_ext, mrb); DONE;
+
+  GEM_INIT(objectspace, mrb); DONE;
+
   GEM_INIT(fiber, mrb); DONE;
 
-  GEM_INIT(random, mrb); DONE;
+  GEM_INIT_IREP(toplevel_ext, mrb); DONE;
 
   return mrb;
 }
@@ -225,7 +250,6 @@ static mrb_value
 mrb_sandbox_eval(mrb_state* mrb, mrb_value self) {
   mrb_sandbox_context* sc;
   struct mrb_parser_state *parser;
-  int n;
   char* code;
   mrb_value result, ret;
   mrb_value obj;
@@ -241,7 +265,7 @@ mrb_sandbox_eval(mrb_state* mrb, mrb_value self) {
     mrb_parser_free(parser);
     return mrb_nil_value();
   }
-  n = mrb_generate_code(sc->mrb, parser);
+  struct RProc *proc = mrb_generate_code(sc->mrb, parser);
   mrb_parser_free(parser);
 
   last_mrb = sc->mrb;
@@ -253,9 +277,7 @@ mrb_sandbox_eval(mrb_state* mrb, mrb_value self) {
   alarm(sc->timeout);
   int ai = mrb_gc_arena_save(mrb);
   int ai_sc = mrb_gc_arena_save(sc->mrb);
-  result = mrb_run(sc->mrb,
-    mrb_proc_new(sc->mrb, sc->mrb->irep[n]),
-    mrb_top_self(sc->mrb));
+  result = mrb_run(sc->mrb, proc, mrb_top_self(sc->mrb));
   signal(SIGALRM, SIG_IGN);
   alarm(0);
   if (sc->mrb->exc)
