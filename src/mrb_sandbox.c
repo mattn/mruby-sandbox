@@ -66,7 +66,6 @@ mrb_value
 mrb_yield_internal(mrb_state *mrb, mrb_value b, int argc, mrb_value *argv, mrb_value self, struct RClass *c);
 #ifdef _WIN32
 #include <windows.h>
-#include <mmsystem.h>
 #define SIGALRM 14
 typedef void (*sighandler_t)(int);
 struct {
