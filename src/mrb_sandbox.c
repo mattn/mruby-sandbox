@@ -69,24 +69,37 @@ mrb_yield_internal(mrb_state *mrb, mrb_value b, int argc, mrb_value *argv, mrb_v
 #include <mmsystem.h>
 #define SIGALRM 14
 typedef void (*sighandler_t)(int);
-sighandler_t f_sigalarm = NULL;
-void alarm(int sec) {
-  static UINT id = 0;
-  if (sec == 0) {
-    f_sigalarm = NULL;
-    if (id != 0) {
-      timeKillEvent(id);
-      id = 0;
-    }
-  } else {
-    id = timeSetEvent(sec * 1000, 100, (LPTIMECALLBACK) f_sigalarm, 0, TIME_ONESHOT);
+struct {
+  DWORD t;
+  HANDLE h;
+  sighandler_t f;
+} alarm_context = {0};
+
+void alarm_thread(void* arg) {
+  if (WaitForSingleObject(GetCurrentThread(), alarm_context.t) == WAIT_TIMEOUT) {
+    if (alarm_context.f) alarm_context.f(SIGALRM);
   }
 }
+
+void alarm(int sec) {
+  alarm_context.t = sec * 1000;
+  if (sec == 0) {
+    alarm_context.f = NULL;
+  } else {
+    if (alarm_context.h != NULL) {
+      alarm_context.f = NULL;
+    }
+	  alarm_context.h = (HANDLE) _beginthread(alarm_thread, 0, NULL);
+  }
+}
+
 void _signal(int sig, sighandler_t t) {
   if (sig == SIGALRM) {
-    f_sigalarm = t;
-    if (t == SIG_IGN) {
-      alarm(0);
+    alarm_context.f = t;
+    if (t == SIG_IGN) alarm_context.f = NULL;
+    if (alarm_context.h != NULL) {
+      TerminateThread(alarm_context.h, 0);
+      alarm_context.h = NULL;
     }
   } else {
     signal(sig, t);
