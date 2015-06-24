@@ -319,10 +319,10 @@ void
 mrb_mruby_sandbox_gem_init(mrb_state* mrb) {
   struct RClass* _class_sandbox = mrb_define_class(mrb, "Sandbox", mrb->object_class);
   MRB_SET_INSTANCE_TT(_class_sandbox, MRB_TT_DATA);
-  mrb_define_method(mrb, _class_sandbox, "initialize", mrb_sandbox_init, ARGS_NONE());
-  mrb_define_method(mrb, _class_sandbox, "eval", mrb_sandbox_eval, ARGS_REQ(1));
-  mrb_define_method(mrb, _class_sandbox, "timeout", mrb_sandbox_timeout_get, ARGS_NONE());
-  mrb_define_method(mrb, _class_sandbox, "timeout=", mrb_sandbox_timeout_set, ARGS_REQ(1));
+  mrb_define_method(mrb, _class_sandbox, "initialize", mrb_sandbox_init, MRB_ARGS_NONE());
+  mrb_define_method(mrb, _class_sandbox, "eval", mrb_sandbox_eval, MRB_ARGS_REQ(1));
+  mrb_define_method(mrb, _class_sandbox, "timeout", mrb_sandbox_timeout_get, MRB_ARGS_NONE());
+  mrb_define_method(mrb, _class_sandbox, "timeout=", mrb_sandbox_timeout_set, MRB_ARGS_REQ(1));
 }
 
 void
