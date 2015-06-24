@@ -281,7 +281,7 @@ mrb_sandbox_eval(mrb_state* mrb, mrb_value self) {
   mrb_parser_free(parser);
 
   last_mrb = sc->mrb;
-  timeout_error = (struct RObject*) mrb_object(mrb_funcall(
+  timeout_error = (struct RObject*) mrb_obj_ptr(mrb_funcall(
     sc->mrb,
     mrb_obj_value(mrb_class_get(sc->mrb, "RuntimeError")),
       "new", 1, mrb_str_new_cstr(sc->mrb, "Timeout")));
